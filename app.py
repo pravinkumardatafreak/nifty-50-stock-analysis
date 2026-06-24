@@ -5,7 +5,7 @@ import plotly.express as px
 from sqlalchemy import create_engine
 
 # Import configuration and analysis modules
-from src.config import ALL_STOCK_DATA_CSV, DB_URI, SECTOR_DATA_CSV
+from src import config
 from src.analysis import (
     calculate_yearly_returns,
     calculate_volatility,
@@ -13,6 +13,12 @@ from src.analysis import (
     calculate_sector_performance,
     calculate_correlation_matrix,
     calculate_monthly_gainers_losers
+)
+from src.macro_data import (
+    ANALYSIS_PERIOD,
+    get_india_macro_indicators,
+    get_us_macro_indicators,
+    get_macro_narrative,
 )
 
 # Page configuration
@@ -91,6 +97,58 @@ st.markdown("""
         color: #FF3B30;
         text-shadow: 0 0 10px rgba(255, 59, 48, 0.2);
     }
+
+    .macro-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.75rem;
+        transition: border-color 0.2s ease;
+    }
+
+    .macro-card:hover {
+        border-color: rgba(255, 140, 0, 0.4);
+    }
+
+    .macro-indicator {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #FF8C00;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .macro-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ECECF1;
+        margin: 0.25rem 0;
+    }
+
+    .macro-meta {
+        font-size: 0.8rem;
+        color: #88888b;
+    }
+
+    .macro-impact {
+        font-size: 0.82rem;
+        color: #a0a0a5;
+        margin-top: 0.4rem;
+        line-height: 1.4;
+    }
+
+    .macro-region-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(255, 140, 0, 0.3);
+    }
+
+    div[data-testid="stSidebar"] button {
+        cursor: pointer;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -101,15 +159,15 @@ def get_stock_data():
     """
     Loads core stock data from the SQL Database (SQLite) with CSV fallback.
     """
-    engine = create_engine(DB_URI)
+    engine = create_engine(config.DB_URI)
     try:
         df = pd.read_sql_query("SELECT * FROM stock_data", engine)
         df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values(by=['Ticker', 'date']).reset_index(drop=True)
         return df, "SQL Database"
     except Exception:
-        if os.path.exists(ALL_STOCK_DATA_CSV):
-            df = pd.read_csv(ALL_STOCK_DATA_CSV)
+        if os.path.exists(config.ALL_STOCK_DATA_CSV):
+            df = pd.read_csv(config.ALL_STOCK_DATA_CSV)
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values(by=['Ticker', 'date']).reset_index(drop=True)
             return df, "CSV Fallback"
@@ -160,10 +218,17 @@ st.sidebar.markdown(
 
 st.sidebar.subheader("Dashboard Roadmap")
 for i, page_name in enumerate(PAGES):
-    if i == st.session_state.current_page:
-        st.sidebar.markdown(f"**👉 {i+1}. {page_name}**")
-    else:
-        st.sidebar.markdown(f"<span style='color: #6c757d;'>{i+1}. {page_name}</span>", unsafe_allow_html=True)
+    is_active = i == st.session_state.current_page
+    label = f"{'▸ ' if is_active else ''}{i + 1}. {page_name}"
+    if st.sidebar.button(
+        label,
+        key=f"nav_page_{i}",
+        use_container_width=True,
+        type="primary" if is_active else "secondary",
+    ):
+        if st.session_state.current_page != i:
+            st.session_state.current_page = i
+            st.rerun()
 
 st.sidebar.divider()
 st.sidebar.subheader("Configuration")
@@ -245,7 +310,61 @@ if page == "Overview & Market Summary":
             
         st.markdown("<br>", unsafe_allow_html=True)
         st.divider()
-        
+
+        # Macro-economic context for institutional analysis
+        st.subheader(f"Macro Economic Context ({ANALYSIS_PERIOD})")
+        st.caption(
+            "Domestic and global fundamentals that banks, FIIs, and asset managers monitor "
+            "when positioning in Nifty 50 large-caps."
+        )
+        st.markdown(get_macro_narrative())
+
+        india_col, us_col = st.columns(2)
+
+        with india_col:
+            st.markdown(
+                '<div class="macro-region-title">🇮🇳 India — Domestic Fundamentals</div>',
+                unsafe_allow_html=True,
+            )
+            for item in get_india_macro_indicators():
+                st.markdown(f"""
+                <div class="macro-card">
+                    <div class="macro-indicator">{item['indicator']}</div>
+                    <div class="macro-value">{item['value']}</div>
+                    <div class="macro-meta">{item['as_of']} · {item['trend']}</div>
+                    <div class="macro-impact">{item['impact']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with us_col:
+            st.markdown(
+                '<div class="macro-region-title">🇺🇸 United States — Global Drivers</div>',
+                unsafe_allow_html=True,
+            )
+            for item in get_us_macro_indicators():
+                st.markdown(f"""
+                <div class="macro-card">
+                    <div class="macro-indicator">{item['indicator']}</div>
+                    <div class="macro-value">{item['value']}</div>
+                    <div class="macro-meta">{item['as_of']} · {item['trend']}</div>
+                    <div class="macro-impact">{item['impact']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with st.expander("How macro factors link to Nifty 50 sectors"):
+            st.markdown("""
+| Macro Factor | Nifty 50 Sectors Most Affected |
+|---|---|
+| **RBI Repo Rate / G-Sec yields** | Banks (HDFCBANK, ICICIBANK), NBFCs (BAJFINANCE), Realty |
+| **CPI / Inflation** | FMCG (HINDUNILVR, ITC), Auto (MARUTI, M&M), Consumer Durables |
+| **INR / USD & FII flows** | IT (TCS, INFY, WIPRO), Pharma exporters, Index heavyweights overall |
+| **US Fed Rate / DXY** | FII-sensitive stocks, IT services, Metals (global demand proxy) |
+| **Crude Oil prices** | OMCs (BPCL, ONGC), Aviation, Paint (input costs), Logistics |
+| **US GDP / IT spending** | IT basket (~15% of Nifty weight), HCLTECH, TECHM |
+            """)
+
+        st.divider()
+
         # Display Top Gainers and Losers Side by Side
         left_col, right_col = st.columns(2)
         
@@ -549,7 +668,7 @@ elif page == "Gemini AI Market Analyst":
         st.warning("No stock data available.")
     else:
         st.markdown(
-            "Leverage Google AI Studio's **Gemini 1.5 Flash** model to generate professional "
+            f"Leverage Google AI Studio's **{config.GEMINI_MODEL_LABEL}** model to generate professional "
             "financial analyst reports dynamically for any selected Nifty 50 stock."
         )
         
@@ -564,7 +683,7 @@ elif page == "Gemini AI Market Analyst":
         volatility_val = stock_vol['volatility'].values[0] if not stock_vol.empty else 0.0
         
         # Sector matching
-        sector_df = pd.read_csv(SECTOR_DATA_CSV)
+        sector_df = pd.read_csv(config.SECTOR_DATA_CSV)
         sector_df['Ticker'] = sector_df['Symbol'].str.split(': ').str[1].str.strip()
         
         ticker_mapping = {
@@ -601,7 +720,7 @@ elif page == "Gemini AI Market Analyst":
             )
         else:
             if st.button("Generate AI Market Report 🚀", use_container_width=True):
-                with st.spinner(f"Querying Gemini 1.5 Flash for {selected_ticker}..."):
+                with st.spinner(f"Querying {config.GEMINI_MODEL_LABEL} for {selected_ticker}..."):
                     from src.analysis import generate_ai_recommendation
                     ai_report = generate_ai_recommendation(
                         ticker=selected_ticker,

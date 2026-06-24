@@ -19,3 +19,6 @@ env/
 # IDE files
 .vscode/
 .idea/
+
+# Local-only evaluation prep (keep offline)
+LIVE_EVALUATION_PREP.md

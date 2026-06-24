@@ -6,7 +6,7 @@
 
 ---
 
-## 🛠️ Project Architecture (PEP-8 Modular Design)
+## Project Architecture (PEP-8 Modular Design)
 
 The codebase has been refactored from a flat Jupyter notebook into a clean, production-ready modular structure:
 
@@ -14,19 +14,34 @@ The codebase has been refactored from a flat Jupyter notebook into a clean, prod
 nifty-50-stock-analysis/
 ├── src/
 │   ├── __init__.py           # Declares 'src' as a Python package
-│   ├── config.py             # Centralizes all paths and database URIs
-│   ├── data_ingestion.py     # Local ETL Pipeline (YAML parsing to CSVs)
-│   ├── analysis.py           # Core analytics (returns, volatility, compounding, correlation)
+│   ├── config.py             # Centralizes paths, database URIs, and Gemini model config
+│   ├── data_ingestion.py     # Local ETL pipeline (YAML parsing to CSVs)
+│   ├── analysis.py           # Core analytics (returns, volatility, compounding, correlation, AI)
+│   ├── macro_data.py         # India & US macroeconomic reference indicators
 │   └── database.py           # Database operations handler (SQLAlchemy engine & insertions)
-├── app.py                    # Interactive Streamlit dashboard UI (Plotly-driven)
+├── app.py                    # Interactive Streamlit dashboard UI (Plotly-driven, 7 pages)
 ├── create_db.py              # Database CLI setup utility
 ├── requirements.txt          # Python dependencies list
-└── README.md                 # Project and Viva Study Guide (This document)
+└── README.md                 # Project and Viva Study Guide (this document)
 ```
 
 ---
 
-## 🧪 Data Science Theory & Viva-Style Study Guide
+## Dashboard Pages
+
+| # | Page | Description |
+|---|------|-------------|
+| 1 | Overview & Market Summary | Market KPIs, macro context (India & US), top gainers/losers |
+| 2 | Volatility Analysis | Standard deviation of daily returns per stock |
+| 3 | Cumulative Returns | Compound return trends for top performers |
+| 4 | Sector Performance | Average yearly return grouped by industry sector |
+| 5 | Stock Correlation | Pearson correlation heatmap (selectable tickers) |
+| 6 | Monthly Performance | Month-wise top 5 gainers and losers |
+| 7 | Gemini AI Market Analyst | AI investment report powered by Gemini 2.5 Flash |
+
+---
+
+## Data Science Theory & Viva-Style Study Guide
 
 This section is prepared to help you answer questions during your **Live Evaluation**.
 
@@ -60,30 +75,40 @@ This section is prepared to help you answer questions during your **Live Evaluat
 
 ---
 
-## 💾 Database Integration & Transition
+## Database Integration & Transition
 
 The project utilizes **SQLAlchemy**, making database interactions independent of the underlying database engine. 
 - **Default Database:** SQLite (`stock_analysis.db`). It runs locally out-of-the-box without requiring installation, ensuring **high portability**.
 - **Switching to MySQL or PostgreSQL:**  
-  You can migrate the database simply by updating the `DB_URI` in [config.py](file:///c:/Users/pravi/Desktop/nifty-50-stock-analysis/src/config.py):
+  You can migrate the database simply by updating the `DB_URI` in [src/config.py](src/config.py):
   * **MySQL:** `mysql+pymysql://user:password@host:port/dbname`
   * **PostgreSQL:** `postgresql+psycopg2://user:password@host:port/dbname`
 
+**Note:** All financial calculations (returns, volatility, correlation) are performed in **Pandas**. SQL is used as a storage and retrieval layer (`SELECT *`, `df.to_sql()`), not for aggregations.
+
 ---
 
-## 🤖 Google AI Studio & Gemini Integration
+## Macroeconomic Context Layer
 
-The dashboard features a **Gemini AI Market Analyst** page. This tool calls Google AI Studio's `gemini-1.5-flash` model to analyze your database metrics and generate custom, professional investment recommendations.
+The Overview page displays India and US macro indicators (RBI repo rate, CPI, Fed funds rate, crude oil, etc.) sourced from publicly reported data (RBI, MOSPI, US Fed). These are curated in `src/macro_data.py` as an **institutional context framework** — they are not stored in the SQL database and are not statistically regressed against sector returns in the current version.
+
+---
+
+## Google AI Studio & Gemini Integration
+
+The dashboard features a **Gemini AI Market Analyst** page. This tool calls Google AI Studio's **`gemini-2.5-flash`** model (configured in [src/config.py](src/config.py)) to analyze your database metrics and generate custom, professional investment recommendations.
 
 ### How to Get Your Free API Key:
 1. Navigate to **[Google AI Studio](https://aistudio.google.com/)**.
 2. Sign in with your Google account and click **Get API Key**.
 3. Create a free API key in a new or existing project.
-4. Launch the dashboard, and paste your API key into the secure **Gemini API Key** password box in the sidebar config panel.
+4. Launch the dashboard, and paste your API key into the **Gemini API Key** password box in the sidebar config panel.
+
+You can also set the `GEMINI_API_KEY` environment variable, or override the model via `GEMINI_MODEL` in your environment.
 
 ---
 
-## 🚀 How to Run the Project
+## How to Run the Project
 
 ### 1. Install Dependencies
 Ensure you have the required packages installed:
@@ -92,7 +117,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Initialize Database and Calculate CSVs
-Run the setup script to calculate volatility, yearly returns, and load them into the SQL Database:
+Run the setup script to calculate volatility, yearly returns, and load them into the SQL database:
 ```bash
 python create_db.py
 ```
@@ -103,4 +128,15 @@ Run the following command to start the interactive web application:
 streamlit run app.py
 ```
 This will automatically launch the dashboard in your default browser at `http://localhost:8501`.
-
+
+---
+
+## Data Pipeline Summary
+
+```text
+Raw YAML (stock_data/) → data_ingestion.py → all_stock_data.csv
+       → create_db.py (Pandas analytics) → SQLite (stock_data, yearly_returns, volatility)
+       → app.py (@st.cache_data) → Streamlit dashboard
+
+Macro indicators (macro_data.py) → Overview page (display only, not in SQL)
+```

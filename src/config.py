@@ -15,3 +15,19 @@ SECTOR_DATA_CSV = os.path.join(BASE_DIR, "Sector_data - Sheet1.csv")
 STOCK_CSVS_DIR = os.path.join(BASE_DIR, "stock_csvs")
 VOLATILITY_CSV = os.path.join(BASE_DIR, "volatility.csv")
 YEARLY_RETURNS_CSV = os.path.join(BASE_DIR, "yearly_returns.csv")
+
+# Gemini AI Configuration (used by analysis.py and app.py)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL_LABEL = "Gemini 2.5 Flash"
+
+__all__ = [
+    "BASE_DIR",
+    "DB_URI",
+    "ALL_STOCK_DATA_CSV",
+    "SECTOR_DATA_CSV",
+    "STOCK_CSVS_DIR",
+    "VOLATILITY_CSV",
+    "YEARLY_RETURNS_CSV",
+    "GEMINI_MODEL",
+    "GEMINI_MODEL_LABEL",
+]

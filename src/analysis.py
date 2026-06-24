@@ -9,7 +9,7 @@ import os
 import pandas as pd
 import numpy as np
 from typing import Tuple, List
-from src.config import SECTOR_DATA_CSV
+from src.config import SECTOR_DATA_CSV, GEMINI_MODEL
 
 def calculate_yearly_returns(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -207,8 +207,8 @@ def generate_ai_recommendation(ticker: str, return_pct: float, volatility_val: f
         # Configure client
         genai.configure(api_key=api_key)
         
-        # Select model
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        # Select model (configured in src/config.py)
+        model = genai.GenerativeModel(GEMINI_MODEL)
         
         # Construct prompt
         prompt = f"""

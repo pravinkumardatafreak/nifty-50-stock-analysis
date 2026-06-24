@@ -5,4 +5,5 @@ seaborn
 sqlalchemy
 plotly
 numpy
+pyyaml
 google-generativeai
